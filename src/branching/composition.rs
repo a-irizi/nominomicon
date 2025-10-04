@@ -1,5 +1,5 @@
 use nom::{
-  IResult,
+  IResult, Parser,
   branch::alt,
   bytes::complete::{tag, tag_no_case},
   character::complete::{alpha1, space0},
@@ -15,7 +15,7 @@ fn parse_space(input: &str) -> IResult<&str, &str> {
 }
 
 fn parse_def_or_ghi(input: &str) -> IResult<&str, &str> {
-  alt((tag("def"), tag("ghi")))(input)
+  alt((tag("def"), tag("ghi"))).parse(input)
 }
 
 #[test]
@@ -31,7 +31,7 @@ fn composition_works() {
 }
 
 fn parse_base(input: &str) -> IResult<&str, &str> {
-  alt((tag_no_case("a"), tag_no_case("t"), tag_no_case("c"), tag_no_case("g")))(input)
+  alt((tag_no_case("a"), tag_no_case("t"), tag_no_case("c"), tag_no_case("g"))).parse(input)
 }
 
 fn parse_pair_base(input: &str) -> IResult<&str, (&str, &str)> {

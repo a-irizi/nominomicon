@@ -1,7 +1,7 @@
-use nom::{IResult, bytes::complete::tag, multi::many0};
+use nom::{IResult, Parser, bytes::complete::tag, multi::many0};
 
 fn many_abc(input: &str) -> IResult<&str, Vec<&str>> {
-  many0(tag("abc"))(input)
+  many0(tag("abc")).parse(input)
 }
 
 #[test]

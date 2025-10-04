@@ -1,11 +1,11 @@
 use nom::{
-  IResult,
+  IResult, Parser,
   branch::alt,
   bytes::complete::{tag, tag_no_case},
 };
 
 fn parse_abc_case_or_def_no_case(input: &str) -> IResult<&str, &str> {
-  alt((tag("abc"), tag_no_case("def")))(input)
+  alt((tag("abc"), tag_no_case("def"))).parse(input)
 }
 
 #[test]

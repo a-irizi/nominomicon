@@ -1,11 +1,11 @@
 use nom::{
-  IResult,
+  IResult, Parser,
   bytes::complete::{take_until, take_while},
   sequence::terminated,
 };
 
 fn parse_sentence(input: &str) -> IResult<&str, &str> {
-  terminated(take_until("."), take_while(|c: char| c == '.' || c.is_whitespace()))(input)
+  terminated(take_until("."), take_while(|c: char| c == '.' || c.is_whitespace())).parse(input)
 }
 
 #[test]

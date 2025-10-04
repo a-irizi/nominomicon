@@ -1,14 +1,14 @@
 use nom::{
-  IResult,
+  IResult, Parser,
   branch::alt,
   bytes::complete::{tag, tag_no_case},
   character::complete::{i32 as nom_i32, space0},
   combinator::value,
-  sequence::{delimited, preceded, separated_pair, terminated},
+  sequence::{delimited, separated_pair},
 };
 
 fn parse_bool(input: &str) -> IResult<&str, bool> {
-  alt((value(true, tag_no_case("true")), value(false, tag_no_case("false"))))(input)
+  alt((value(true, tag_no_case("true")), value(false, tag_no_case("false")))).parse(input)
 }
 
 #[test]
@@ -43,7 +43,8 @@ fn parse_coordinates(input: &str) -> IResult<&str, Coordinates> {
       delimited(space0, nom_i32, space0),
     ),
     tag(")"),
-  )(input)
+  )
+  .parse(input)
   .map(|(rest, (x, y))| (rest, Coordinates { x, y }))
 }
 
