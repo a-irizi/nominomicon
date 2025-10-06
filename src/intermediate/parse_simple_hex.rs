@@ -44,6 +44,45 @@ fn parse_hex_color_no_alpha_2(input: &str) -> IResult<&str, Color> {
     .parse(input)
 }
 
+fn slices_around_successful_parse<'input>(
+  input: &'input str,
+  mut parser: impl Parser<&'input str, Output = Color, Error = nom::error::Error<&'input str>>,
+) -> IResult<(&'input str, &'input str), Color> {
+  let mut latest_error =
+    nom::Err::Error(nom::error::Error { input, code: nom::error::ErrorKind::Fail });
+
+  for (idx, _) in input.char_indices() {
+    let input2 = &input[idx..];
+    match parser.parse(input2) {
+      Ok((rest, color)) => return Ok(((&input[..idx], rest), color)),
+      Err(e) => latest_error = e,
+    }
+  }
+
+  Err(latest_error.map(|e| nom::error::Error { input: (e.input, ""), code: e.code }))
+}
+
+// sample input: "\n☀️\n#FFAA00\n🌙\n"
+// output: Color {r: 255, g: 170, b: 0 }
+// rest: ("\n☀️\n", "\n🌙\n")
+fn parse_first_encountered_hex_color_no_alpha(input: &str) -> IResult<(&str, &str), Color> {
+  {
+    let mut parser = parse_hex_color_no_alpha_2;
+    let mut latest_error =
+      nom::Err::Error(nom::error::Error { input, code: nom::error::ErrorKind::Fail });
+
+    for idx in input.char_indices().filter_map(|(idx, c)| if c == '#' { Some(idx) } else { None }) {
+      let input2 = &input[idx..];
+      match parser.parse(input2) {
+        Ok((rest, color)) => return Ok(((&input[..idx], rest), color)),
+        Err(e) => latest_error = e,
+      }
+    }
+
+    Err(latest_error.map(|e| nom::error::Error { input: (e.input, ""), code: e.code }))
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use rstest::rstest;
@@ -107,6 +146,53 @@ mod tests {
       matches!(
         result,
         nom::Err::Error(nom::error::Error { input: "0", code: nom::error::ErrorKind::TakeWhileMN })
+      ),
+      "{result:?}"
+    );
+  }
+
+  #[test]
+  fn parse_first_encountered_hex_color_no_alpha_works() {
+    let input = "\n☀️\n#FFA#\n#FFAA00\n🌙\n";
+    let ((prefix, postfix), color) = parse_first_encountered_hex_color_no_alpha(input).unwrap();
+    assert_eq!("\n☀️\n#FFA#\n", prefix);
+    assert_eq!("\n🌙\n", postfix);
+    assert_eq!(Color { r: 0xFF, g: 0xAA, b: 0x00 }, color);
+
+    let input = "\n☀️\n#FFA#\n\n🌙\n#FFAA00";
+    let ((prefix, postfix), color) = parse_first_encountered_hex_color_no_alpha(input).unwrap();
+    assert_eq!("\n☀️\n#FFA#\n\n🌙\n", prefix);
+    assert_eq!("", postfix);
+    assert_eq!(Color { r: 0xFF, g: 0xAA, b: 0x00 }, color);
+
+    let input = "#FFAA00\n☀️\n#FFA#\n\n🌙\n";
+    let ((prefix, postfix), color) = parse_first_encountered_hex_color_no_alpha(input).unwrap();
+    assert_eq!("", prefix);
+    assert_eq!("\n☀️\n#FFA#\n\n🌙\n", postfix);
+    assert_eq!(Color { r: 0xFF, g: 0xAA, b: 0x00 }, color);
+
+    let input = "#FFAA0G\n☀️\n#FFA#\n\n🌙\n";
+    let result = parse_first_encountered_hex_color_no_alpha(input).unwrap_err();
+    assert!(
+      matches!(
+        result,
+        nom::Err::Error(nom::error::Error {
+          input: ("\n\n🌙\n", ""),
+          code: nom::error::ErrorKind::TakeWhileMN
+        })
+      ),
+      "{result:?}"
+    );
+
+    let input = "#FFAA0G\n☀️\n#FFA\n\n🌙\n";
+    let result = parse_first_encountered_hex_color_no_alpha(input).unwrap_err();
+    assert!(
+      matches!(
+        result,
+        nom::Err::Error(nom::error::Error {
+          input: ("A\n\n🌙\n", ""),
+          code: nom::error::ErrorKind::TakeWhileMN
+        })
       ),
       "{result:?}"
     );
