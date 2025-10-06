@@ -1,6 +1,7 @@
 use nom::{
   IResult, Parser,
   bytes::complete::{tag, take_while_m_n},
+  sequence::preceded,
 };
 
 #[derive(Debug, PartialEq)]
@@ -35,8 +36,18 @@ fn parse_hex_color_no_alpha(input: &str) -> IResult<&str, Color> {
   Ok((rest, Color { r, g, b }))
 }
 
+// sample input: "#FFAA00"
+// output: Color {r: 255, g: 170, b: 0 }
+fn parse_hex_color_no_alpha_2(input: &str) -> IResult<&str, Color> {
+  preceded(tag("#"), (parse_hex_segment, parse_hex_segment, parse_hex_segment))
+    .map(|(r, g, b)| Color { r, g, b })
+    .parse(input)
+}
+
 #[cfg(test)]
 mod tests {
+  use rstest::rstest;
+
   use super::*;
 
   #[test]
@@ -59,27 +70,29 @@ mod tests {
     ));
   }
 
-  #[test]
-  fn parse_hex_color_no_alpha_works() {
+  #[rstest]
+  #[case::parse_hex_color_no_alpha(parse_hex_color_no_alpha)]
+  #[case::parse_hex_color_no_alpha(parse_hex_color_no_alpha_2)]
+  fn parse_hex_color_no_alpha_works(#[case] parser: impl Fn(&str) -> IResult<&str, Color>) {
     let input = "#FFAA00";
-    let (rest, parsed) = parse_hex_color_no_alpha(input).unwrap();
+    let (rest, parsed) = parser(input).unwrap();
     assert_eq!("", rest);
     assert_eq!(Color { r: 0xFF, g: 0xAA, b: 0x00 }, parsed);
 
     let input = "#123456foo";
-    let (rest, parsed) = parse_hex_color_no_alpha(input).unwrap();
+    let (rest, parsed) = parser(input).unwrap();
     assert_eq!("foo", rest);
     assert_eq!(Color { r: 0x12, g: 0x34, b: 0x56 }, parsed);
 
     let input = "FFAA00";
-    let result = parse_hex_color_no_alpha(input).unwrap_err();
+    let result = parser(input).unwrap_err();
     assert!(matches!(
       result,
       nom::Err::Error(nom::error::Error { input: "FFAA00", code: nom::error::ErrorKind::Tag })
     ));
 
     let input = "#FFAA";
-    let result = parse_hex_color_no_alpha(input).unwrap_err();
+    let result = parser(input).unwrap_err();
     assert!(
       matches!(
         result,
@@ -89,7 +102,7 @@ mod tests {
     );
 
     let input = "#FFAA0";
-    let result = parse_hex_color_no_alpha(input).unwrap_err();
+    let result = parser(input).unwrap_err();
     assert!(
       matches!(
         result,
